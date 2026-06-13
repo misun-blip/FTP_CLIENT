@@ -85,7 +85,7 @@ class FTPConnection:
         Returns:
             FTPResponse对象
         """
-        from core.response_parser import FTPResponse
+        from ftp_client.core.response_parser import FTPResponse
         
         response_data = []
         while True:

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from ftp_client.models.remote_file import RemoteFile
+from ftp_client.models.transfer_task import TransferDirection, TransferStatus, TransferTask
+from ftp_client.transfer.download_resume import compute_resume_position
 
 
 class MockFTPClient:
@@ -42,6 +46,65 @@ class MockFTPClient:
     def close(self) -> None:
         self.connected = False
         self.logged_in = False
+
+
+class MockDownloader:
+    """Mock downloader for GUI integration before a real FTP server is available."""
+
+    def __init__(self, ftp_client: MockFTPClient | None = None) -> None:
+        self._ftp_client = ftp_client
+
+    def download(self, remote_path: str, local_path: str) -> TransferTask:
+        total_size = self._resolve_remote_size(remote_path)
+        task = TransferTask(
+            direction=TransferDirection.DOWNLOAD,
+            local_path=local_path,
+            remote_path=remote_path,
+            total_size=total_size,
+            status=TransferStatus.RUNNING,
+        )
+
+        Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+        payload = b"x" * total_size if total_size else b""
+        Path(local_path).write_bytes(payload)
+        task.transferred_size = len(payload)
+        task.status = TransferStatus.COMPLETED
+        return task
+
+    def resume_download(self, remote_path: str, local_path: str) -> TransferTask:
+        total_size = self._resolve_remote_size(remote_path)
+        transferred_size = compute_resume_position(local_path)
+        task = TransferTask(
+            direction=TransferDirection.DOWNLOAD,
+            local_path=local_path,
+            remote_path=remote_path,
+            total_size=total_size,
+            transferred_size=transferred_size,
+            status=TransferStatus.RUNNING,
+        )
+
+        if transferred_size >= total_size:
+            task.status = TransferStatus.COMPLETED
+            return task
+
+        Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+        remaining = total_size - transferred_size
+        with open(local_path, "ab") as local_file:
+            local_file.write(b"x" * remaining)
+
+        task.transferred_size = total_size
+        task.status = TransferStatus.COMPLETED
+        return task
+
+    def _resolve_remote_size(self, remote_path: str) -> int:
+        if self._ftp_client is None:
+            return 1024
+
+        for remote_file in self._ftp_client.list_dir():
+            if remote_file.path == remote_path:
+                return remote_file.size
+
+        return 1024
 
 
 class ConsoleLogger:
