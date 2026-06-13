@@ -11,7 +11,7 @@ from ftp_client.interfaces import (
     MainWindowProtocol,
     UploaderProtocol,
 )
-from ftp_client.mocks import ConsoleLogger, MockFTPClient
+from ftp_client.mocks import ConsoleLogger, MockDownloader, MockFTPClient
 from ftp_client.models.remote_file import RemoteFile
 from ftp_client.models.transfer_task import TransferTask
 
@@ -72,6 +72,7 @@ def create_app(*, use_mocks: bool = False) -> FTPApplication:
     if use_mocks:
         services.ftp_client = MockFTPClient()
         services.logger = ConsoleLogger()
+        services.downloader = MockDownloader(services.ftp_client)
 
     # 注入 GUI
     from ftp_client.ui.main_window import MainWindow
