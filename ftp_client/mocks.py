@@ -107,6 +107,48 @@ class MockDownloader:
         return 1024
 
 
+class MockUploader:
+    """Mock uploader for GUI integration before a real FTP server is available."""
+
+    def __init__(self, ftp_client: MockFTPClient | None = None) -> None:
+        self._ftp_client = ftp_client
+        self.files: dict[str, bytes] = {}
+
+    def upload(self, local_path: str, remote_path: str) -> TransferTask:
+        local_file = Path(local_path)
+        payload = local_file.read_bytes()
+        task = TransferTask(
+            direction=TransferDirection.UPLOAD,
+            local_path=local_path,
+            remote_path=remote_path,
+            total_size=len(payload),
+            status=TransferStatus.RUNNING,
+        )
+        self.files[remote_path] = payload
+        task.transferred_size = len(payload)
+        task.status = TransferStatus.COMPLETED
+        return task
+
+    def resume_upload(self, local_path: str, remote_path: str) -> TransferTask:
+        local_file = Path(local_path)
+        payload = local_file.read_bytes()
+        uploaded_size = len(self.files.get(remote_path, b""))
+        task = TransferTask(
+            direction=TransferDirection.UPLOAD,
+            local_path=local_path,
+            remote_path=remote_path,
+            total_size=len(payload),
+            transferred_size=uploaded_size,
+            status=TransferStatus.RUNNING,
+        )
+        if uploaded_size > len(payload):
+            raise ValueError("remote uploaded size exceeds local file size")
+        self.files[remote_path] = payload
+        task.transferred_size = len(payload)
+        task.status = TransferStatus.COMPLETED
+        return task
+
+
 class ConsoleLogger:
     """Simple logger usable before the shared logger implementation lands."""
 

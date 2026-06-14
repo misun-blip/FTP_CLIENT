@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from PySide6.QtWidgets import QApplication
-
 from ftp_client.interfaces import (
     DownloaderProtocol,
     FTPClientProtocol,
@@ -11,19 +9,16 @@ from ftp_client.interfaces import (
     MainWindowProtocol,
     UploaderProtocol,
 )
-from ftp_client.mocks import ConsoleLogger, MockDownloader, MockFTPClient
+from ftp_client.mocks import ConsoleLogger, MockDownloader, MockFTPClient, MockUploader
 from ftp_client.models.remote_file import RemoteFile
 from ftp_client.models.transfer_task import TransferTask
 
-_qt_app: QApplication | None = None
+_qt_app: object | None = None
 
 
 @dataclass(slots=True)
 class ApplicationServices:
-    """Application-level dependency container.
-
-    该对象只负责汇总各模块，后续由各负责人将具体实现注入进来。
-    """
+    """Application-level dependency container."""
 
     ftp_client: FTPClientProtocol | None = None
     downloader: DownloaderProtocol | None = None
@@ -46,36 +41,52 @@ class FTPApplication:
             window = self.services.main_window
             window.show()
             global _qt_app
+            try:
+                from PySide6.QtWidgets import QApplication
+            except ModuleNotFoundError as exc:
+                raise RuntimeError("PySide6 is required to launch the GUI") from exc
             _qt_app = QApplication.instance()
             if _qt_app is not None:
                 _qt_app.exec()
             return
 
-        print("FTP client skeleton is ready.")
+        print("FTP client services are ready, but PySide6 is not installed.")
+        print("Install dependencies with: pip install -r requirements.txt")
         print("Integrated models:")
         print(f"- RemoteFile: {RemoteFile.__name__}")
         print(f"- TransferTask: {TransferTask.__name__}")
 
 
-def create_app(*, use_mocks: bool = False) -> FTPApplication:
-    """Create the application shell.
-
-    后续联调时，各模块负责人只需在这里接入自己的实现。
-    """
+def create_app(*, use_mocks: bool = False, with_gui: bool = True) -> FTPApplication:
+    """Create the application shell with mock or real FTP services."""
     services = ApplicationServices()
-
-    # 初始化 Qt 应用（必须在创建任何 widget 之前）
-    qt_app = QApplication.instance()
-    if qt_app is None:
-        qt_app = QApplication([])
 
     if use_mocks:
         services.ftp_client = MockFTPClient()
         services.logger = ConsoleLogger()
         services.downloader = MockDownloader(services.ftp_client)
+        services.uploader = MockUploader(services.ftp_client)
+    else:
+        from ftp_client.core.ftp_client import FTPClient
 
-    # 注入 GUI
-    from ftp_client.ui.main_window import MainWindow
+        ftp_client = FTPClient()
+        services.ftp_client = ftp_client
+        services.downloader = ftp_client
+        services.uploader = ftp_client
+        services.logger = ConsoleLogger()
+
+    if not with_gui:
+        return FTPApplication(services)
+
+    try:
+        from PySide6.QtWidgets import QApplication
+        from ftp_client.ui.main_window import MainWindow
+    except ModuleNotFoundError:
+        return FTPApplication(services)
+
+    qt_app = QApplication.instance()
+    if qt_app is None:
+        qt_app = QApplication([])
 
     services.main_window = MainWindow(
         ftp=services.ftp_client,
