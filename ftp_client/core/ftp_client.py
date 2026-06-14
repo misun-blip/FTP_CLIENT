@@ -7,12 +7,12 @@ import threading
 from typing import List, Optional, Callable
 from pathlib import Path
 
-from core.connection import FTPConnection
-from core.response_parser import FTPResponse, ResponseParser, FTPResponseCode
-from models.remote_file import RemoteFile
-from models.transfer_task import TransferTask, TransferDirection, TransferStatus
-from utils.logger import get_logger
-from utils.exceptions import FTPException, AuthenticationError, TransferError
+from ftp_client.core.connection import FTPConnection
+from ftp_client.core.response_parser import FTPResponse, ResponseParser, FTPResponseCode
+from ftp_client.models.remote_file import RemoteFile
+from ftp_client.models.transfer_task import TransferTask, TransferDirection, TransferStatus
+from ftp_client.utils.exceptions import AuthenticationError, FTPException, TransferError
+from ftp_client.utils.logger import get_logger
 
 
 class FTPClient:
