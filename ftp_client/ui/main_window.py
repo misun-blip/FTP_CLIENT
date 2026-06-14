@@ -227,6 +227,10 @@ class MainWindow(QMainWindow):
         self._local_list.setAlternatingRowColors(True)
         layout.addWidget(self._local_list)
 
+        self._upload_btn = QPushButton("上传选中文件")
+        self._upload_btn.clicked.connect(self._start_upload_selected)
+        layout.addWidget(self._upload_btn)
+
         self._refresh_local_dir()
         return group
 
@@ -401,6 +405,34 @@ class MainWindow(QMainWindow):
     # 本地浏览
     # ------------------------------------------------------------------
 
+    def _start_upload_selected(self) -> None:
+        if self._uploader is None:
+            self._append_log("[ERROR] 上传模块未注入")
+            return
+
+        item = self._local_list.currentItem()
+        if item is None:
+            self._append_log("[ERROR] 请先选择一个本地文件")
+            return
+
+        local_path = item.data(Qt.ItemDataRole.UserRole)
+        if not local_path or os.path.isdir(local_path):
+            self._append_log("[ERROR] 请选择文件进行上传")
+            return
+
+        remote_dir = self._remote_path_edit.text().strip() or "/"
+        if not remote_dir.endswith("/"):
+            remote_dir += "/"
+        remote_path = remote_dir + os.path.basename(local_path)
+
+        try:
+            task = self._uploader.upload(local_path, remote_path)
+            self._append_log(f"[INFO] 上传完成: {os.path.basename(local_path)}")
+            self._add_task_row(task)
+            self._on_refresh_remote()
+        except Exception as exc:
+            self._append_log(f"[ERROR] 上传失败: {exc}")
+
     def _browse_local(self) -> None:
         from PySide6.QtWidgets import QFileDialog
 
@@ -420,6 +452,7 @@ class MainWindow(QMainWindow):
                 full = os.path.join(path, name)
                 icon = "📁 " if os.path.isdir(full) else "📄 "
                 item = QListWidgetItem(icon + name)
+                item.setData(Qt.ItemDataRole.UserRole, full)
                 self._local_list.addItem(item)
         except OSError as exc:
             self._append_log(f"[ERROR] 读取本地目录失败: {exc}")
