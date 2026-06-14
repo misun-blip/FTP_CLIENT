@@ -30,6 +30,7 @@ class TransferTask:
     transferred_size: int = 0
     status: TransferStatus = TransferStatus.PENDING
     task_id: str = ""
+    error_message: str | None = None
 
     def __post_init__(self) -> None:
         if not self.task_id:
