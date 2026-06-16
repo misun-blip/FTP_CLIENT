@@ -9,9 +9,11 @@ from ftp_client.interfaces import (
     MainWindowProtocol,
     UploaderProtocol,
 )
-from ftp_client.mocks import ConsoleLogger, MockDownloader, MockFTPClient, MockUploader
+from ftp_client.mocks import MockDownloader, MockFTPClient, MockUploader
 from ftp_client.models.remote_file import RemoteFile
 from ftp_client.models.transfer_task import TransferTask
+from ftp_client.utils.config import load_config
+from ftp_client.utils.logger import AppLogger
 
 _qt_app: object | None = None
 
@@ -60,10 +62,11 @@ class FTPApplication:
 def create_app(*, use_mocks: bool = False, with_gui: bool = True) -> FTPApplication:
     """Create the application shell with mock or real FTP services."""
     services = ApplicationServices()
+    services.config = load_config()
+    services.logger = AppLogger(level=services.config.log_level)
 
     if use_mocks:
         services.ftp_client = MockFTPClient()
-        services.logger = ConsoleLogger()
         services.downloader = MockDownloader(services.ftp_client)
         services.uploader = MockUploader(services.ftp_client)
     else:
@@ -73,7 +76,6 @@ def create_app(*, use_mocks: bool = False, with_gui: bool = True) -> FTPApplicat
         services.ftp_client = ftp_client
         services.downloader = ftp_client
         services.uploader = ftp_client
-        services.logger = ConsoleLogger()
 
     if not with_gui:
         return FTPApplication(services)
