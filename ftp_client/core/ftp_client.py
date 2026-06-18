@@ -631,8 +631,7 @@ class FTPClient:
         Returns:
             最终响应对象
         """
-        response_raw = self.connection._receive_response()
-        return FTPResponse.parse(response_raw)
+        return self.connection._receive_response()
         
     def _get_file_size(self, remote_path: str) -> int:
         """
